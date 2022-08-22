@@ -13,6 +13,7 @@ import {
 import YTSR, {Video} from 'ytsr';
 import {getData, getPreview} from "spotify-url-info";
 import {getPlaylist, getSong} from "apple-music-metadata";
+import scdl from 'soundcloud-downloader';
 import {Client, Playlist as IPlaylist, Video as IVideo, VideoCompact} from "youtubei";
 import {ChannelType, GuildChannel} from "discord.js";
 
@@ -28,6 +29,7 @@ export class Utils {
         SpotifyPlaylist: /https?:\/\/(?:embed\.|open\.)(?:spotify\.com\/)(?:(album|playlist)\/|\?uri=spotify:playlist:)((\w|-)+)(?:(?=\?)(?:[?&]foo=(\d*)(?=[&#]|$)|(?![?&]foo=)[^#])+)?(?=#|$)/,
         Apple: /https?:\/\/music\.apple\.com\/.+?\/.+?\/(.+?)\//,
         ApplePlaylist: /https?:\/\/music\.apple\.com\/.+?\/.+?\/(.+?)\//,
+        SoundCloud: /^https?:\/\/(soundcloud\.com)\/(.*)$/,
     }
 
     /**
@@ -159,8 +161,24 @@ export class Utils {
             this.regexList.YouTubeVideo.test(Search);
         let AppleLink =
             this.regexList.Apple.test(Search);
+        let SoundCloudLink = 
+            this.regexList.SoundCloud.test(Search);
 
-        if (AppleLink) {
+        if (SoundCloudLink) {
+            try {
+                let SCResult = await scdl.getInfo(Search, "lnFbWHXluNwOkW7TxTYUXrrse0qj1C72");
+                if (SCResult) {
+                    let SearchResult = await this.search(
+                        `${SCResult.publisher_metadata.artist} - ${SCResult.title}`,
+                        SOptions,
+                        Queue
+                    );
+                    return SearchResult[0];
+                }
+            } catch (e) {
+                throw DMPErrors.INVALID_APPLE;
+            }
+        } else if (AppleLink) {
             try {
                 let AppleResult = await getSong(Search);
                 if (AppleResult) {
@@ -391,7 +409,7 @@ export class Utils {
                 YouTubeResult.songs = this.shuffle(YouTubeResult.songs);
 
             return new Playlist(YouTubeResult, Queue, SOptions.requestedBy);
-        }
+        } 
 
         throw DMPErrors.INVALID_PLAYLIST;
     }
